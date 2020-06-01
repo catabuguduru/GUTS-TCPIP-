@@ -1,0 +1,140 @@
+def register_user(self, username, password, rights):
+        """
+            Register a new user
+
+            Parameters -
+            ---------------------------
+            username - Username of a user
+
+            password - Password of a user
+
+            rights - Rights of a user
+
+            Returns -
+            ---------------------------
+            Response
+        """
+        if os.path.exists(os.path.join(SERVER_DATABASE, 'login')):
+            content = self.read_logins()
+            users = content.split("\n")
+            users = [user.split(",") for user in users]
+            for user in users:
+                if username == user[0]:
+                    return "Username already taken"
+            with open(os.path.join(SERVER_DATABASE, 'login'), 'w+') as data:
+                data.write(content + "\n" + username +
+                           "," + password + "," + rights)
+            os.mkdir(os.path.join(SERVER_DATABASE, username))
+            return "Register complete"
+        with open(os.path.join(SERVER_DATABASE, 'login'), 'w+') as data:
+            data.write(username + "," + password + "," + rights)
+        os.mkdir(os.path.join(SERVER_DATABASE, username))
+        return "Register complete"
+
+    def login_user(self, username, password):
+        """
+            Login function
+
+            Parameters -
+            ---------------------------
+            username - Username of a user
+
+            password - Password of a user
+
+            Returns -
+            ---------------------------
+            Response
+        """
+        global USERS
+        if os.path.exists(os.path.join(SERVER_DATABASE, 'login')):
+            content = self.read_logins()
+            users = content.split("\n")
+            users = [user.split(",") for user in users]
+            for user in users:
+                if username == user[0]:
+                    if password == user[1]:
+                        if username in USERS:
+                            return "Logged in from other location."
+                        if self.username is not None:
+                            self.logout()
+                        self.username = username
+                        if user[2].lower() == 'admin':
+                            self.rights = True
+                        self.password = user[1]
+                        USERS.append(username)
+                        self.child_directory = os.path.join(
+                            self.child_directory, username)
+                        return "Login completed."
+                    return "Wrong password."
+            return "Username not found. Please register."
+        return "No user registered in server. Please register."
+
+    def write_file(self, filename, contents, clear_content=False):
+        """
+            Write contect to a file
+
+            Parameters -
+            ---------------------------
+            filename - String of filename
+
+            contents - Contents
+
+            clear_content - Bool to clear the content
+
+            Returns -
+            ---------------------------
+            Response
+        """
+        if self.username is None:
+            return "Login Please."
+        if r"/" in filename or "\\" in filename:
+            return "Don't add slashes in filename."
+        if clear_content:
+            open(os.path.join(self.child_directory, filename), 'w+').close()
+            return "Cleared contents of file %s" % filename
+        with open(os.path.join(self.child_directory, filename), 'a') as data:
+            data.write("\n" + " ".join(contents))
+        return "File written successfully"
+
+    def read_file(self, filename, close_file=False):
+        """
+            Read a file
+
+            Parameters -
+            ---------------------------
+            filename - String of filename
+
+            close_file - Bool to close the file object
+
+            Returns -
+            ---------------------------
+            Response
+        """
+        if self.username is None:
+            return "Login Please."
+        if r"/" in filename or "\\" in filename:
+            return "Don't add slashes in filename."
+        if close_file:
+            if self.read_file_object is not None:
+                self.read_file_object.close()
+                self.read_file_object = None
+                self.read_file_name = None
+            return "Closed file."
+        if self.isexistandisfile(self.child_directory, filename):
+            if self.read_file_name == os.path.join(self.child_directory, filename):
+                read_data = self.read_file_object.read(100)
+                if read_data != "":
+                    return read_data
+                return "Reading content finished. Please close the file and read again."
+            if self.read_file_object is not None:
+                self.read_file_object.close()
+                self.read_file_object = None
+                self.read_file_name = None
+            self.read_file_name = os.path.join(self.child_directory, filename)
+            self.read_file_object = open(os.path.join(
+                self.child_directory, filename), 'r')
+            read_data = self.read_file_object.read(100)
+            if read_data != "":
+                return read_data
+            return "Empty file."
+        return "%s doesn't exist" % filename
